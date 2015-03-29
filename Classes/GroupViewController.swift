@@ -1,0 +1,364 @@
+//
+//  GroupViewController.swift
+//  ABUIGroups
+//
+//  Translated by OOPer in cooperation with shlab.jp, on 2015/3/29.
+//
+//
+/*
+     File: GroupViewController.h
+     File: GroupViewController.m
+ Abstract: Prompts a user for access to their address book data, then updates its UI according to their response.
+ Adds, displays, and removes group records from Contacts.
+  Version: 1.1
+
+ Disclaimer: IMPORTANT:  This Apple software is supplied to you by Apple
+ Inc. ("Apple") in consideration of your agreement to the following
+ terms, and your use, installation, modification or redistribution of
+ this Apple software constitutes acceptance of these terms.  If you do
+ not agree with these terms, please do not use, install, modify or
+ redistribute this Apple software.
+
+ In consideration of your agreement to abide by the following terms, and
+ subject to these terms, Apple grants you a personal, non-exclusive
+ license, under Apple's copyrights in this original Apple software (the
+ "Apple Software"), to use, reproduce, modify and redistribute the Apple
+ Software, with or without modifications, in source and/or binary forms;
+ provided that if you redistribute the Apple Software in its entirety and
+ without modifications, you must retain this notice and the following
+ text and disclaimers in all such redistributions of the Apple Software.
+ Neither the name, trademarks, service marks or logos of Apple Inc. may
+ be used to endorse or promote products derived from the Apple Software
+ without specific prior written permission from Apple.  Except as
+ expressly stated in this notice, no other rights or licenses, express or
+ implied, are granted by Apple herein, including but not limited to any
+ patent rights that may be infringed by your derivative works or by other
+ works in which the Apple Software may be incorporated.
+
+ The Apple Software is provided by Apple on an "AS IS" basis.  APPLE
+ MAKES NO WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION
+ THE IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND FITNESS
+ FOR A PARTICULAR PURPOSE, REGARDING THE APPLE SOFTWARE OR ITS USE AND
+ OPERATION ALONE OR IN COMBINATION WITH YOUR PRODUCTS.
+
+ IN NO EVENT SHALL APPLE BE LIABLE FOR ANY SPECIAL, INDIRECT, INCIDENTAL
+ OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ INTERRUPTION) ARISING IN ANY WAY OUT OF THE USE, REPRODUCTION,
+ MODIFICATION AND/OR DISTRIBUTION OF THE APPLE SOFTWARE, HOWEVER CAUSED
+ AND WHETHER UNDER THEORY OF CONTRACT, TORT (INCLUDING NEGLIGENCE),
+ STRICT LIABILITY OR OTHERWISE, EVEN IF APPLE HAS BEEN ADVISED OF THE
+ POSSIBILITY OF SUCH DAMAGE.
+
+ Copyright (C) 2013 Apple Inc. All Rights Reserved.
+
+*/
+import UIKit
+import AddressBook
+
+@objc(GroupViewController)
+class GroupViewController: UITableViewController {
+    
+    
+    private var addressBook: ABAddressBook!
+    private var sourcesAndGroups: [MySource] = []
+    @IBOutlet weak var addButton: UIBarButtonItem!
+    
+    //MARK: -
+    //MARK: View lifecycle
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        
+        // Create an address book object
+        addressBook = ABAddressBookCreateWithOptions(nil, nil)!.takeRetainedValue()
+        
+        //Display all groups available in the Address Book
+        self.sourcesAndGroups = []
+        
+        // Check whether we are authorized to access the user's address book data
+        self.checkAddressBookAccess()
+    }
+    
+    
+    //MARK: -
+    //MARK: Address Book Access
+    
+    // Check the authorization status of our application for Address Book
+    private func checkAddressBookAccess() {
+        switch ABAddressBookGetAuthorizationStatus() {
+            // Update our UI if the user has granted access to their Contacts
+        case  .Authorized:
+            self.accessGrantedForAddressBook()
+            // Prompt the user for access to Contacts if there is no definitive answer
+        case .NotDetermined:
+            self.requestAddressBookAccess()
+            // Display a message if the user has denied or restricted access to Contacts
+        case .Denied, .Restricted:
+            if NSClassFromString("UIAlertController") == nil {
+                let alert = UIAlertView(title: "Privacy Warning",
+                    message: "Permission was not granted for Contacts.",
+                    delegate: nil,
+                    cancelButtonTitle: "OK"
+                )
+                alert.show()
+            } else {
+                let alertController = UIAlertController(title: "Privacy Warning", message: "Permission was not granted for Contacts.", preferredStyle: .Alert)
+                alertController.addAction(UIAlertAction(title: "OK", style: .Cancel, handler: nil))
+                self.presentViewController(alertController, animated: true, completion: nil)
+            }
+        default:
+            break
+        }
+    }
+    
+    
+    // Prompt the user for access to their Address Book data
+    private func requestAddressBookAccess() {
+        
+        ABAddressBookRequestAccessWithCompletion(self.addressBook) {[weak self] granted, error in
+            if granted {
+                dispatch_async(dispatch_get_main_queue()) {
+                    self?.accessGrantedForAddressBook()
+                    
+                }
+            }
+        }
+    }
+    
+    
+    // This method is called when the user has granted access to their address book data.
+    private func accessGrantedForAddressBook() {
+        // Enable the Add button
+        self.addButton.enabled = true
+        // Add the Edit button
+        self.navigationItem.leftBarButtonItem = self.editButtonItem()
+        
+        // Fetch all groups available in address book
+        self.sourcesAndGroups = self.fetchGroupsInAddressBook(self.addressBook)
+        self.tableView.reloadData()
+    }
+    
+    
+    //MARK: -
+    //MARK: Manage groups
+    
+    // Return the name associated with the given identifier
+    private func nameForSourceWithIdentifier(identifier: Int) -> String? {
+        switch identifier {
+        case kABSourceTypeLocal:
+            return "On My Device"
+        case kABSourceTypeExchange:
+            return "Exchange server"
+        case kABSourceTypeExchangeGAL:
+            return "Exchange Global Address List"
+        case kABSourceTypeMobileMe:
+            return "MobileMe"
+        case kABSourceTypeLDAP:
+            return "LDAP server"
+        case kABSourceTypeCardDAV:
+            return "CardDAV server"
+        case kABSourceTypeCardDAVSearch:
+            return "Searchable CardDAV server"
+        default:
+            break
+        }
+        return nil
+    }
+    
+    
+    // Return the name of a given group
+    private func nameForGroup(group: ABRecord) -> String? {
+        return ABRecordCopyCompositeName(group)?.takeRetainedValue() as String?
+    }
+    
+    
+    // Return the name of a given source
+    private func nameForSource(source: ABRecord) -> String? {
+        // Fetch the source type
+        let sourceType = ABRecordCopyValue(source, kABSourceTypeProperty)!.takeRetainedValue() as! NSNumber
+        
+        // Fetch and return the name associated with the source type
+        return self.nameForSourceWithIdentifier(sourceType.integerValue)
+    }
+    
+    
+    //MARK: -
+    //MARK: Manage Address Book contacts
+    
+    // Create and add a new group to the address book database
+    private func addGroup(name: String?, fromAddressBook myAddressBook: ABAddressBook) {
+        var sourceFound = false
+        if name != nil && !name!.isEmpty {
+            let newGroup: ABRecord = ABGroupCreate()!.takeRetainedValue()
+            ABRecordSetValue(newGroup, kABGroupNameProperty, name, nil)
+            
+            // Add the new group
+            ABAddressBookAddRecord(myAddressBook, newGroup, nil)
+            ABAddressBookSave(myAddressBook, nil)
+            
+            // Get the ABSource object that contains this new group
+            let groupSource: ABRecord = ABGroupCopySource(newGroup)!.takeRetainedValue()
+            // Fetch the source name
+            let sourceName = self.nameForSource(groupSource)
+            
+            // Look for the above source among the sources in sourcesAndGroups
+            for source in self.sourcesAndGroups as NSArray as! [MySource] {
+                if source.name == sourceName {
+                    // Associate the new group with the found source
+                    source.groups.append(newGroup)
+                    // Set sourceFound to YES if sourcesAndGroups already contains this source
+                    sourceFound = true
+                }
+            }
+            // Add this source to sourcesAndGroups
+            if !sourceFound {
+                let mutableArray = [newGroup]
+                let newSource = MySource(allGroups: mutableArray, name: sourceName!)
+                self.sourcesAndGroups.append(newSource)
+            }
+        }
+    }
+    
+    
+    // Remove a group from the given address book
+    private func deleteGroup(group: ABRecord, fromAddressBook myAddressBook: ABAddressBook) {
+        ABAddressBookRemoveRecord(myAddressBook, group, nil)
+        ABAddressBookSave(myAddressBook, nil)
+    }
+    
+    
+    // Return a list of groups organized by sources
+    private func fetchGroupsInAddressBook(myAddressBook: ABAddressBook) -> [MySource] {
+        var list: [MySource] = []
+        // Get all the sources from the address book
+        let allSources = ABAddressBookCopyArrayOfAllSources(myAddressBook)!.takeRetainedValue() as [AnyObject]
+        for aSource in allSources {
+            let source: ABRecord = aSource as ABRecord //### typealiase ABRecord = AnyObject
+            // Fetch all groups included in the current source
+            let result = ABAddressBookCopyArrayOfAllGroupsInSource(myAddressBook, source)?.takeRetainedValue() as! [AnyObject]?
+            // The app displays a source if and only if it contains groups
+            if result != nil && result!.count > 0 {
+                let groups = result! as [ABRecord]
+                // Fetch the source name
+                let sourceName = self.nameForSource(source)!
+                //Create a MySource object that contains the source name and all its groups
+                let source = MySource(allGroups: groups, name: sourceName)
+                
+                // Save the source object into the array
+                list.append(source)
+            }
+        }
+        
+        return list
+    }
+    
+    //MARK: -
+    //MARK: Table view data source
+    
+    // Customize the number of sections in the table view
+    override func numberOfSectionsInTableView(tableView: UITableView) -> Int {
+        return self.sourcesAndGroups.count
+    }
+    
+    
+    // Customize section header titles
+    override func tableView(tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        return self.sourcesAndGroups[section].name
+    }
+    
+    
+    // Customize the number of rows in the table view
+    override func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return self.sourcesAndGroups[section].groups.count
+    }
+    
+    
+    // Customize the appearance of table view cells.
+    override func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCellWithIdentifier("groupCell", forIndexPath: indexPath) as! UITableViewCell
+        
+        let source = self.sourcesAndGroups[indexPath.section]
+        let group: ABRecord = source.groups[indexPath.row]
+        cell.textLabel?.text = self.nameForGroup(group)
+        
+        return cell
+    }
+    
+    
+    //MARK: -
+    //MARK: Editing rows
+    
+    override func tableView(tableView: UITableView, editingStyleForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCellEditingStyle {
+        return .Delete
+    }
+    
+    
+    override func setEditing(editing: Bool, animated: Bool) {
+        super.setEditing(editing, animated: animated)
+        //Disable the Add button while editing
+        self.navigationItem.rightBarButtonItem!.enabled = !editing
+    }
+    
+    
+    // Handle the deletion of a group
+    override func tableView(tableView: UITableView, commitEditingStyle editingStyle: UITableViewCellEditingStyle, forRowAtIndexPath indexPath: NSIndexPath) {
+        if editingStyle == .Delete {
+            let source = self.sourcesAndGroups[indexPath.section]
+            // group to be deleted
+            let group: ABRecord = source.groups[indexPath.row]
+            
+            // Remove the above group from its associated source
+            source.groups.removeAtIndex(indexPath.row)
+            
+            // Remove the group from the address book
+            self.deleteGroup(group, fromAddressBook: self.addressBook)
+            
+            // Update the table view
+            tableView.deleteRowsAtIndexPaths([indexPath], withRowAnimation: .Fade)
+            
+            // Remove the section from the table if the associated source does not contain any groups
+            if source.groups.count == 0 {
+                // Remove the source from sourcesAndGroups
+                self.sourcesAndGroups = self.sourcesAndGroups.filter{$0 !== source}
+                
+                tableView.deleteSections(NSIndexSet(index: indexPath.section),
+                    withRowAnimation: .Fade)
+            }
+        }
+    }
+    
+    
+    //MARK: -
+    //MARK: Memory management
+    
+    override func didReceiveMemoryWarning() {
+        // Release the view if it doesn't have a superview.
+        super.didReceiveMemoryWarning()
+    }
+    
+    
+    //MARK: -
+    //MARK: Get user input
+    
+    // This method is called when the user taps Done in the "Add Group" view.
+    @IBAction func done(segue: UIStoryboardSegue) {
+        if segue.identifier == "returnInput" {
+            if let addGroupViewController = segue.sourceViewController as? AddGroupViewController {
+                self.addGroup(addGroupViewController.group, fromAddressBook: self.addressBook)
+                self.tableView.reloadData()
+            }
+            self.dismissViewControllerAnimated(true, completion: nil)
+        }
+    }
+    
+    
+    // This method is called when the user taps Cancel in the "Add Group" view.
+    @IBAction func cancel(segue: UIStoryboardSegue) {
+        if segue.identifier == "cancelInput" {
+            self.dismissViewControllerAnimated(true, completion: nil)
+        }
+    }
+    
+    
+}
