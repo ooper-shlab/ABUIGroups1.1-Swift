@@ -95,20 +95,18 @@ class GroupViewController: UITableViewController {
             self.requestAddressBookAccess()
             // Display a message if the user has denied or restricted access to Contacts
         case .Denied, .Restricted:
-            if NSClassFromString("UIAlertController") == nil {
+            if #available(iOS 8.0, *) {
+                let alertController = UIAlertController(title: "Privacy Warning", message: "Permission was not granted for Contacts.", preferredStyle: .Alert)
+                alertController.addAction(UIAlertAction(title: "OK", style: .Cancel, handler: nil))
+                self.presentViewController(alertController, animated: true, completion: nil)
+            } else {
                 let alert = UIAlertView(title: "Privacy Warning",
                     message: "Permission was not granted for Contacts.",
                     delegate: nil,
                     cancelButtonTitle: "OK"
                 )
                 alert.show()
-            } else {
-                let alertController = UIAlertController(title: "Privacy Warning", message: "Permission was not granted for Contacts.", preferredStyle: .Alert)
-                alertController.addAction(UIAlertAction(title: "OK", style: .Cancel, handler: nil))
-                self.presentViewController(alertController, animated: true, completion: nil)
             }
-        default:
-            break
         }
     }
     
@@ -236,7 +234,7 @@ class GroupViewController: UITableViewController {
         for aSource in allSources {
             let source: ABRecord = aSource as ABRecord //### typealiase ABRecord = AnyObject
             // Fetch all groups included in the current source
-            let result = ABAddressBookCopyArrayOfAllGroupsInSource(myAddressBook, source)?.takeRetainedValue() as! [AnyObject]?
+            let result = ABAddressBookCopyArrayOfAllGroupsInSource(myAddressBook, source)?.takeRetainedValue() as [AnyObject]?
             // The app displays a source if and only if it contains groups
             if result != nil && result!.count > 0 {
                 let groups = result! as [ABRecord]
@@ -276,7 +274,7 @@ class GroupViewController: UITableViewController {
     
     // Customize the appearance of table view cells.
     override func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCellWithIdentifier("groupCell", forIndexPath: indexPath) as! UITableViewCell
+        let cell = tableView.dequeueReusableCellWithIdentifier("groupCell", forIndexPath: indexPath) as UITableViewCell
         
         let source = self.sourcesAndGroups[indexPath.section]
         let group: ABRecord = source.groups[indexPath.row]
