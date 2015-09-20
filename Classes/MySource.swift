@@ -53,16 +53,16 @@
 
 */
 import UIKit
-import AddressBook
+//import AddressBook
 
 @objc(MySource)
 class MySource: NSObject {
     // Name of an ABSource object
     var name: String
     // Array of all groups associated with an ABSource object
-    var groups: [ABRecord] = []
+    var groups: [MyGroup] = []
     
-    init(allGroups: [ABRecord], name sourceName: String) {
+    init(allGroups: [MyGroup], name sourceName: String) {
         groups = allGroups
         name = sourceName
         super.init()

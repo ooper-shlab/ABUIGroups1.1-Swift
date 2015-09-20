@@ -54,13 +54,13 @@
 
 */
 import UIKit
-import AddressBook
+//import AddressBook
 
 @objc(GroupViewController)
 class GroupViewController: UITableViewController {
     
     
-    private var addressBook: ABAddressBook!
+    private var addressBook: MyAddressBook!
     private var sourcesAndGroups: [MySource] = []
     @IBOutlet weak var addButton: UIBarButtonItem!
     
@@ -71,7 +71,7 @@ class GroupViewController: UITableViewController {
         super.viewDidLoad()
         
         // Create an address book object
-        addressBook = ABAddressBookCreateWithOptions(nil, nil)!.takeRetainedValue()
+        addressBook = MyAddressBook.createInstance()
         
         //Display all groups available in the Address Book
         self.sourcesAndGroups = []
@@ -86,7 +86,7 @@ class GroupViewController: UITableViewController {
     
     // Check the authorization status of our application for Address Book
     private func checkAddressBookAccess() {
-        switch ABAddressBookGetAuthorizationStatus() {
+        switch MyAddressBook.authorizationStatus {
             // Update our UI if the user has granted access to their Contacts
         case  .Authorized:
             self.accessGrantedForAddressBook()
@@ -114,10 +114,10 @@ class GroupViewController: UITableViewController {
     // Prompt the user for access to their Address Book data
     private func requestAddressBookAccess() {
         
-        ABAddressBookRequestAccessWithCompletion(self.addressBook) {[weak self] granted, error in
+        self.addressBook.requestAccessForContacts {granted, error in
             if granted {
                 dispatch_async(dispatch_get_main_queue()) {
-                    self?.accessGrantedForAddressBook()
+                    self.accessGrantedForAddressBook()
                     
                 }
             }
@@ -127,14 +127,19 @@ class GroupViewController: UITableViewController {
     
     // This method is called when the user has granted access to their address book data.
     private func accessGrantedForAddressBook() {
-        // Enable the Add button
-        self.addButton.enabled = true
-        // Add the Edit button
-        self.navigationItem.leftBarButtonItem = self.editButtonItem()
-        
-        // Fetch all groups available in address book
-        self.sourcesAndGroups = self.fetchGroupsInAddressBook(self.addressBook)
-        self.tableView.reloadData()
+        do {
+            // Fetch all groups available in address book
+            self.sourcesAndGroups = try self.fetchGroupsInAddressBook(self.addressBook)
+                
+            // Enable the Add button
+            self.addButton.enabled = true
+            // Add the Edit button
+            self.navigationItem.leftBarButtonItem = self.editButtonItem()
+            
+            self.tableView.reloadData()
+        } catch let error {
+            print(error)
+        }
     }
     
     
@@ -142,63 +147,62 @@ class GroupViewController: UITableViewController {
     //MARK: Manage groups
     
     // Return the name associated with the given identifier
-    private func nameForSourceWithIdentifier(identifier: Int) -> String? {
-        switch identifier {
-        case kABSourceTypeLocal:
-            return "On My Device"
-        case kABSourceTypeExchange:
-            return "Exchange server"
-        case kABSourceTypeExchangeGAL:
-            return "Exchange Global Address List"
-        case kABSourceTypeMobileMe:
-            return "MobileMe"
-        case kABSourceTypeLDAP:
-            return "LDAP server"
-        case kABSourceTypeCardDAV:
-            return "CardDAV server"
-        case kABSourceTypeCardDAVSearch:
-            return "Searchable CardDAV server"
-        default:
-            break
-        }
-        return nil
-    }
+//    private func nameForSourceWithIdentifier(identifier: Int) -> String? {
+//        switch identifier {
+//        case kABSourceTypeLocal:
+//            return "On My Device"
+//        case kABSourceTypeExchange:
+//            return "Exchange server"
+//        case kABSourceTypeExchangeGAL:
+//            return "Exchange Global Address List"
+//        case kABSourceTypeMobileMe:
+//            return "MobileMe"
+//        case kABSourceTypeLDAP:
+//            return "LDAP server"
+//        case kABSourceTypeCardDAV:
+//            return "CardDAV server"
+//        case kABSourceTypeCardDAVSearch:
+//            return "Searchable CardDAV server"
+//        default:
+//            break
+//        }
+//        return nil
+//    }
     
     
     // Return the name of a given group
-    private func nameForGroup(group: ABRecord) -> String? {
-        return ABRecordCopyCompositeName(group)?.takeRetainedValue() as String?
-    }
+//    private func nameForGroup(group: ABRecord) -> String? {
+//        return ABRecordCopyCompositeName(group)?.takeRetainedValue() as String?
+//    }
     
     
     // Return the name of a given source
-    private func nameForSource(source: ABRecord) -> String? {
-        // Fetch the source type
-        let sourceType = ABRecordCopyValue(source, kABSourceTypeProperty)!.takeRetainedValue() as! NSNumber
-        
-        // Fetch and return the name associated with the source type
-        return self.nameForSourceWithIdentifier(sourceType.integerValue)
-    }
+//    private func nameForSource(source: ABRecord) -> String? {
+//        // Fetch the source type
+//        let sourceType = ABRecordCopyValue(source, kABSourceTypeProperty)!.takeRetainedValue() as! NSNumber
+//        
+//        // Fetch and return the name associated with the source type
+//        return self.nameForSourceWithIdentifier(sourceType.integerValue)
+//    }
     
     
     //MARK: -
     //MARK: Manage Address Book contacts
     
     // Create and add a new group to the address book database
-    private func addGroup(name: String?, fromAddressBook myAddressBook: ABAddressBook) {
+    private func addGroup(name: String, fromAddressBook myAddressBook: MyAddressBook) throws {
         var sourceFound = false
-        if name != nil && !name!.isEmpty {
-            let newGroup: ABRecord = ABGroupCreate()!.takeRetainedValue()
-            ABRecordSetValue(newGroup, kABGroupNameProperty, name, nil)
+        if !name.isEmpty {
+            let newGroup = MyGroup.createInstance()
+            newGroup.name = name
             
             // Add the new group
-            ABAddressBookAddRecord(myAddressBook, newGroup, nil)
-            ABAddressBookSave(myAddressBook, nil)
+            try myAddressBook.addGroup(newGroup)
             
             // Get the ABSource object that contains this new group
-            let groupSource: ABRecord = ABGroupCopySource(newGroup)!.takeRetainedValue()
+            let groupSource = try myAddressBook.containerForGroup(newGroup)
             // Fetch the source name
-            let sourceName = self.nameForSource(groupSource)
+            let sourceName = groupSource.name
             
             // Look for the above source among the sources in sourcesAndGroups
             for source in self.sourcesAndGroups as NSArray as! [MySource] {
@@ -220,26 +224,23 @@ class GroupViewController: UITableViewController {
     
     
     // Remove a group from the given address book
-    private func deleteGroup(group: ABRecord, fromAddressBook myAddressBook: ABAddressBook) {
-        ABAddressBookRemoveRecord(myAddressBook, group, nil)
-        ABAddressBookSave(myAddressBook, nil)
+    private func deleteGroup(group: MyGroup, fromAddressBook myAddressBook: MyAddressBook) throws {
+        try myAddressBook.deleteGroup(group)
     }
     
     
     // Return a list of groups organized by sources
-    private func fetchGroupsInAddressBook(myAddressBook: ABAddressBook) -> [MySource] {
+    private func fetchGroupsInAddressBook(myAddressBook: MyAddressBook) throws -> [MySource] {
         var list: [MySource] = []
         // Get all the sources from the address book
-        let allSources = ABAddressBookCopyArrayOfAllSources(myAddressBook)!.takeRetainedValue() as [AnyObject]
+        let allSources = try myAddressBook.allContainers()
         for aSource in allSources {
-            let source: ABRecord = aSource as ABRecord //### typealiase ABRecord = AnyObject
             // Fetch all groups included in the current source
-            let result = ABAddressBookCopyArrayOfAllGroupsInSource(myAddressBook, source)?.takeRetainedValue() as [AnyObject]?
+            let groups = try myAddressBook.allGroupsInContainer(aSource)
             // The app displays a source if and only if it contains groups
-            if result != nil && result!.count > 0 {
-                let groups = result! as [ABRecord]
+            if !groups.isEmpty {
                 // Fetch the source name
-                let sourceName = self.nameForSource(source)!
+                let sourceName = aSource.name!
                 //Create a MySource object that contains the source name and all its groups
                 let source = MySource(allGroups: groups, name: sourceName)
                 
@@ -277,8 +278,8 @@ class GroupViewController: UITableViewController {
         let cell = tableView.dequeueReusableCellWithIdentifier("groupCell", forIndexPath: indexPath) as UITableViewCell
         
         let source = self.sourcesAndGroups[indexPath.section]
-        let group: ABRecord = source.groups[indexPath.row]
-        cell.textLabel?.text = self.nameForGroup(group)
+        let group: MyGroup = source.groups[indexPath.row]
+        cell.textLabel?.text = group.name
         
         return cell
     }
@@ -304,24 +305,28 @@ class GroupViewController: UITableViewController {
         if editingStyle == .Delete {
             let source = self.sourcesAndGroups[indexPath.section]
             // group to be deleted
-            let group: ABRecord = source.groups[indexPath.row]
+            let group = source.groups[indexPath.row]
             
-            // Remove the above group from its associated source
-            source.groups.removeAtIndex(indexPath.row)
-            
-            // Remove the group from the address book
-            self.deleteGroup(group, fromAddressBook: self.addressBook)
-            
-            // Update the table view
-            tableView.deleteRowsAtIndexPaths([indexPath], withRowAnimation: .Fade)
-            
-            // Remove the section from the table if the associated source does not contain any groups
-            if source.groups.count == 0 {
-                // Remove the source from sourcesAndGroups
-                self.sourcesAndGroups = self.sourcesAndGroups.filter{$0 !== source}
+            do {
+                // Remove the group from the address book
+                try self.deleteGroup(group, fromAddressBook: self.addressBook)
                 
-                tableView.deleteSections(NSIndexSet(index: indexPath.section),
-                    withRowAnimation: .Fade)
+                // Remove the above group from its associated source
+                source.groups.removeAtIndex(indexPath.row)
+                
+                // Update the table view
+                tableView.deleteRowsAtIndexPaths([indexPath], withRowAnimation: .Fade)
+                
+                // Remove the section from the table if the associated source does not contain any groups
+                if source.groups.count == 0 {
+                    // Remove the source from sourcesAndGroups
+                    self.sourcesAndGroups = self.sourcesAndGroups.filter{$0 !== source}
+                    
+                    tableView.deleteSections(NSIndexSet(index: indexPath.section),
+                        withRowAnimation: .Fade)
+                }
+            } catch let error {
+                print(error)
             }
         }
     }
@@ -343,8 +348,12 @@ class GroupViewController: UITableViewController {
     @IBAction func done(segue: UIStoryboardSegue) {
         if segue.identifier == "returnInput" {
             if let addGroupViewController = segue.sourceViewController as? AddGroupViewController {
-                self.addGroup(addGroupViewController.group, fromAddressBook: self.addressBook)
-                self.tableView.reloadData()
+                do {
+                    try self.addGroup(addGroupViewController.group!, fromAddressBook: self.addressBook)
+                    self.tableView.reloadData()
+                } catch let error {
+                    print(error)
+                }
             }
             self.dismissViewControllerAnimated(true, completion: nil)
         }

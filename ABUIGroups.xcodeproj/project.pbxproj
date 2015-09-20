@@ -10,6 +10,7 @@
 		1D60589F0D05DD5A006BFB54 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1D30AB110D05D00D00671497 /* Foundation.framework */; };
 		1DF5F4E00D08C38300B7A737 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1DF5F4DF0D08C38300B7A737 /* UIKit.framework */; };
 		2892E4100DC94CBA00A64D0F /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2892E40F0DC94CBA00A64D0F /* CoreGraphics.framework */; };
+		D72183911BADE83200929DF7 /* MyAddressBookWrappers.swift in Sources */ = {isa = PBXBuildFile; fileRef = D72183901BADE83200929DF7 /* MyAddressBookWrappers.swift */; settings = {ASSET_TAGS = (); }; };
 		D7F731031AC7BE4600130E4B /* MySource.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F731011AC7BD0600130E4B /* MySource.swift */; };
 		D7F731051AC7BE9800130E4B /* AddGroupViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F731041AC7BE9800130E4B /* AddGroupViewController.swift */; };
 		D7F731071AC7C01E00130E4B /* GroupViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F731061AC7C01E00130E4B /* GroupViewController.swift */; };
@@ -34,6 +35,7 @@
 		1DF5F4DF0D08C38300B7A737 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		2892E40F0DC94CBA00A64D0F /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		8D1107310486CEB800E47090 /* ABUIGroups-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "ABUIGroups-Info.plist"; plistStructureDefinitionIdentifier = "com.apple.xcode.plist.structure-definition.iphone.info-plist"; sourceTree = "<group>"; };
+		D72183901BADE83200929DF7 /* MyAddressBookWrappers.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MyAddressBookWrappers.swift; sourceTree = "<group>"; };
 		D7F731011AC7BD0600130E4B /* MySource.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MySource.swift; sourceTree = "<group>"; };
 		D7F731041AC7BE9800130E4B /* AddGroupViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AddGroupViewController.swift; sourceTree = "<group>"; };
 		D7F731061AC7C01E00130E4B /* GroupViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GroupViewController.swift; sourceTree = "<group>"; };
@@ -76,6 +78,7 @@
 				D7F7313C1AC8172800130E4B /* ABUIGroupsAppDelegate.swift */,
 				D7F731011AC7BD0600130E4B /* MySource.swift */,
 				D7F731041AC7BE9800130E4B /* AddGroupViewController.swift */,
+				D72183901BADE83200929DF7 /* MyAddressBookWrappers.swift */,
 			);
 			path = Classes;
 			sourceTree = "<group>";
@@ -208,6 +211,7 @@
 			files = (
 				D7F731071AC7C01E00130E4B /* GroupViewController.swift in Sources */,
 				D7F731031AC7BE4600130E4B /* MySource.swift in Sources */,
+				D72183911BADE83200929DF7 /* MyAddressBookWrappers.swift in Sources */,
 				D7F731051AC7BE9800130E4B /* AddGroupViewController.swift in Sources */,
 				D7F7313D1AC8172800130E4B /* ABUIGroupsAppDelegate.swift in Sources */,
 			);
