@@ -49,23 +49,23 @@ import ContactsUI
 //  You may find many things need to be modified to use this file in your app.
 //
 
-enum MyAddressBookError: ErrorType {
-    case Creation   //Unknown error in ABAddressBookCreateWithOptions
-    case Copy       //Error in ABAddressBookCopyPeopleWithName or ABAddressBookCopyArrayOfAllPeople
-    case AddValue   //Error in ABMultiValueAddValueAndLabel
-    case SetValue   //Error in ABRecordSetValue
-    case NonMutable //CNConatct is not mutable in CNRecord
+enum MyAddressBookError: Error {
+    case creation   //Unknown error in ABAddressBookCreateWithOptions
+    case copy       //Error in ABAddressBookCopyPeopleWithName or ABAddressBookCopyArrayOfAllPeople
+    case addValue   //Error in ABMultiValueAddValueAndLabel
+    case setValue   //Error in ABRecordSetValue
+    case nonMutable //CNConatct is not mutable in CNRecord
     //
-    case Remove
-    case Save
-    case AddRecord
-    case NoData
+    case remove
+    case save
+    case addRecord
+    case noData
 }
 
 //MARK: ABAddressBook/CNContactStore
 public class MyAddressBook: NSObject {
-    private let addressBook: ABAddressBookRef!
-    private init(addressBook: ABAddressBookRef?) {
+    private let addressBook: ABAddressBook!
+    private init(addressBook: ABAddressBook?) {
         self.addressBook = addressBook
         setupConstants()
     }
@@ -80,7 +80,7 @@ public class MyAddressBook: NSObject {
                 return MyAddressBook(addressBook: addressBook)
             } else {
                 if cfError != nil {
-                    let error = cfError!.takeUnretainedValue() as NSError
+                    let error = cfError!.takeUnretainedValue()
                     print(error)
                 }
                 return MyAddressBook(addressBook: nil)
@@ -93,14 +93,14 @@ public class MyAddressBook: NSObject {
         return MyAuthorizationStatus(abAuthorizationStatus: abAuthorizationStatus)
     }
     
-    public func requestAccessForContacts(completion: (Bool, NSError?)->Void) {
+    public func requestAccessForContacts(_ completion: (Bool, Error?)->Void) {
         let handler: ABAddressBookRequestAccessCompletionHandler = {granted, error in
-            completion(granted, error as NSError?)
+            completion(granted, error)
         }
         ABAddressBookRequestAccessWithCompletion(self.addressBook, handler)
     }
     
-    public func peopleWithName(name: String) throws -> [MyRecord] {
+    public func peopleWithName(_ name: String) throws -> [MyRecord] {
         //### this does not generate the same result as CNContact.predicateForContactsMatchingName(name)
         //and the resul is not what we expect.
 //        if let people = ABAddressBookCopyPeopleWithName(self.addressBook, name)?.takeRetainedValue() as NSArray? as? [ABRecord] {
@@ -111,14 +111,14 @@ public class MyAddressBook: NSObject {
         if let allContacts = ABAddressBookCopyArrayOfAllPeople(self.addressBook)?.takeRetainedValue() as NSArray? as? [ABRecord] {
             let matches = allContacts.filter {record in
                 if let compositeName = ABRecordCopyCompositeName(record)?.takeRetainedValue() as NSString? as? String {
-                    return compositeName.containsString(name)
+                    return compositeName.contains(name)
                 } else {
                     return false
                 }
             }
             return matches.map(MyRecord.init)
         } else {
-            throw MyAddressBookError.Copy
+            throw MyAddressBookError.copy
         }
     }
     
@@ -126,41 +126,41 @@ public class MyAddressBook: NSObject {
         if let allSources = ABAddressBookCopyArrayOfAllSources(addressBook)?.takeRetainedValue() {
             return (allSources as NSArray).map{MyContainer(record: $0)}
         } else {
-            throw MyAddressBookError.Copy
+            throw MyAddressBookError.copy
         }
     }
     
-    public func containerForGroup(group: MyGroup) throws -> MyContainer {
+    public func containerForGroup(_ group: MyGroup) throws -> MyContainer {
         if let groupSource = ABGroupCopySource(group.record)?.takeRetainedValue() {
             return MyContainer(record: groupSource)
         } else {
-            throw MyAddressBookError.NoData
+            throw MyAddressBookError.noData
         }
     }
     
-    public func allGroupsInContainer(container: MyContainer) throws -> [MyGroup] {
+    public func allGroupsInContainer(_ container: MyContainer) throws -> [MyGroup] {
         if let allGroups = ABAddressBookCopyArrayOfAllGroupsInSource(addressBook, container.record)?.takeRetainedValue() {
             return (allGroups as NSArray).map{MyGroup(record: $0)}
         } else {
-            throw MyAddressBookError.Copy
+            throw MyAddressBookError.copy
         }
     }
     
-    public func deleteGroup(group: MyGroup) throws {
+    public func deleteGroup(_ group: MyGroup) throws {
         guard ABAddressBookRemoveRecord(addressBook, group.record, nil) else {
-            throw MyAddressBookError.Remove
+            throw MyAddressBookError.remove
         }
         guard ABAddressBookSave(addressBook, nil) else {
-            throw MyAddressBookError.Save
+            throw MyAddressBookError.save
         }
     }
     
-    public func addGroup(group: MyGroup) throws {
+    public func addGroup(_ group: MyGroup) throws {
         guard ABAddressBookAddRecord(addressBook, group.record, nil) else {
-            throw MyAddressBookError.AddRecord
+            throw MyAddressBookError.addRecord
         }
         guard ABAddressBookSave(addressBook, nil) else {
-            throw MyAddressBookError.Save
+            throw MyAddressBookError.save
         }
     }
 }
@@ -173,82 +173,82 @@ private class CNAddressBook: MyAddressBook {
     }
     
     override class var authorizationStatus: MyAuthorizationStatus {
-        let cnAuthorizationStatus = CNContactStore.authorizationStatusForEntityType(.Contacts)
+        let cnAuthorizationStatus = CNContactStore.authorizationStatus(for: .contacts)
         return MyAuthorizationStatus(cnAuthorizationStatus: cnAuthorizationStatus)
     }
     
-    override func requestAccessForContacts(completion: (Bool, NSError?)->Void) {
-        self.contactStore.requestAccessForEntityType(.Contacts, completionHandler: completion)
+    private override func requestAccessForContacts(_ completion: (Bool, Error?) -> Void) {
+        self.contactStore.requestAccess(for: .contacts, completionHandler: completion)
     }
     
-    override func peopleWithName(name: String) throws -> [MyRecord] {
-        let predicate: NSPredicate = CNContact.predicateForContactsMatchingName(name)
+    override func peopleWithName(_ name: String) throws -> [MyRecord] {
+        let predicate: NSPredicate = CNContact.predicateForContacts(matchingName: name)
         let descriptor = CNContactViewController.descriptorForRequiredKeys()
-        let contacts = try contactStore.unifiedContactsMatchingPredicate(predicate, keysToFetch: [descriptor])
+        let contacts = try contactStore.unifiedContacts(matching: predicate, keysToFetch: [descriptor])
         return contacts.map(CNRecord.init)
     }
     
     override func allContainers() throws -> [MyContainer] {
-        let allSources = try contactStore.containersMatchingPredicate(nil)
+        let allSources = try contactStore.containers(matching: nil)
         return allSources.map{MyCNContainer(container: $0)}
     }
     
-    override func containerForGroup(group: MyGroup) throws -> MyContainer {
+    override func containerForGroup(_ group: MyGroup) throws -> MyContainer {
         let groupIdentifier = (group as! MyCNGroup).group.identifier
-        let predicate = CNContainer.predicateForContainerOfGroupWithIdentifier(groupIdentifier)
-        let containers = try contactStore.containersMatchingPredicate(predicate)
+        let predicate = CNContainer.predicateForContainerOfGroup(withIdentifier: groupIdentifier)
+        let containers = try contactStore.containers(matching: predicate)
         if containers.isEmpty {
-            throw MyAddressBookError.NoData
+            throw MyAddressBookError.noData
         }
         return MyCNContainer(container: containers[0])
     }
     
-    override func allGroupsInContainer(container: MyContainer) throws -> [MyGroup] {
+    override func allGroupsInContainer(_ container: MyContainer) throws -> [MyGroup] {
         let containerIdentifier = (container as! MyCNContainer).container.identifier
-        let predicate = CNGroup.predicateForGroupsInContainerWithIdentifier(containerIdentifier)
-        let allGroups = try contactStore.groupsMatchingPredicate(predicate)
+        let predicate = CNGroup.predicateForGroupsInContainer(withIdentifier: containerIdentifier)
+        let allGroups = try contactStore.groups(matching: predicate)
         return allGroups.map{MyCNGroup(group: $0)}
     }
     
-    override func deleteGroup(group: MyGroup) throws {
+    override func deleteGroup(_ group: MyGroup) throws {
         let mutableGroup = (group as! MyCNGroup).group.mutableCopy() as! CNMutableGroup
         let request = CNSaveRequest()
-        request.deleteGroup(mutableGroup)
-        try contactStore.executeSaveRequest(request)
+        request.delete(mutableGroup)
+        try contactStore.execute(request)
     }
     
-    override func addGroup(group: MyGroup) throws {
+    override func addGroup(_ group: MyGroup) throws {
         let mutableGroup = (group as! MyCNGroup).group.mutableCopy() as! CNMutableGroup
         let request = CNSaveRequest()
-        request.addGroup(mutableGroup, toContainerWithIdentifier: nil)
-        try contactStore.executeSaveRequest(request)
+        request.add(mutableGroup, toContainerWithIdentifier: nil)
+        try contactStore.execute(request)
     }
 }
 
 //MARK: ABAuthorizationStatus/CNAuthorizationStatus
 public enum MyAuthorizationStatus : Int {
-    case NotDetermined
-    case Restricted
-    case Denied
-    case Authorized
+    case notDetermined
+    case restricted
+    case denied
+    case authorized
 }
 
 private extension MyAuthorizationStatus {
     init(abAuthorizationStatus: ABAuthorizationStatus) {
         switch abAuthorizationStatus {
-        case .NotDetermined: self = .NotDetermined
-        case .Restricted: self = .Restricted
-        case .Denied: self = .Denied
-        case .Authorized: self = .Authorized
+        case .notDetermined: self = .notDetermined
+        case .restricted: self = .restricted
+        case .denied: self = .denied
+        case .authorized: self = .authorized
         }
     }
     @available(iOS 9.0, *)
     init(cnAuthorizationStatus: CNAuthorizationStatus) {
         switch cnAuthorizationStatus {
-        case .NotDetermined: self = .NotDetermined
-        case .Restricted: self = .Restricted
-        case .Denied: self = .Denied
-        case .Authorized: self = .Authorized
+        case .notDetermined: self = .notDetermined
+        case .restricted: self = .restricted
+        case .denied: self = .denied
+        case .authorized: self = .authorized
         }
     }
 }
@@ -405,17 +405,17 @@ public class MyRecord: NSObject {
     public var compositeName: String? {
         return ABRecordCopyCompositeName(person).takeRetainedValue() as String
     }
-    public func appendEmail(mail: String, withLabel label: String) throws {
+    public func appendEmail(_ mail: String, withLabel label: String) throws {
         let email: ABMutableMultiValue = ABMultiValueCreateMutable(ABPropertyType(kABStringPropertyType)).takeRetainedValue()
         guard ABMultiValueAddValueAndLabel(email, mail, kABOtherLabel, nil) else {
-            throw MyAddressBookError.AddValue
+            throw MyAddressBookError.addValue
         }
         var anError: Unmanaged<CFError>?
         guard ABRecordSetValue(person, ABPropertyID(kABPersonEmailProperty), email, &anError) else {
-            if let error = anError?.takeRetainedValue() as NSError? {
+            if let error = anError?.takeRetainedValue() {
                 throw error
             } else {
-                throw MyAddressBookError.SetValue
+                throw MyAddressBookError.setValue
             }
         }
     }
@@ -437,12 +437,12 @@ private class CNRecord: MyRecord {
         super.init(person: nil)
     }
     override var compositeName: String? {
-        return CNContactFormatter.stringFromContact(contact, style: .FullName)
+        return CNContactFormatter.string(from: contact, style: .fullName)
     }
-    override func appendEmail(email: String, withLabel label: String) throws {
-        let newEmail = CNLabeledValue(label: label, value: email)
+    override func appendEmail(_ email: String, withLabel label: String) throws {
+        let newEmail = CNLabeledValue(label: label, value: email as NSString)
         guard let mutableContact = contact as? CNMutableContact else {
-            throw MyAddressBookError.NonMutable
+            throw MyAddressBookError.nonMutable
         }
         mutableContact.emailAddresses.append(newEmail)
     }
@@ -511,10 +511,10 @@ public let (MyContactNamePrefixKey, MyContactGivenNameKey, MyContactMiddleNameKe
 public let (MyLabelHome,MyLabelWork,MyLabelOther) = ("_$!<Home>!$_", "_$!<Work>!$_", "_$!<Other>!$_")
 
 public enum MyContainerType: Int {
-    case Unassigned
-    case Local
-    case Exchange
-    case CardDAV
+    case unassigned
+    case local
+    case exchange
+    case cardDAV
 }
 @available(iOS 9.0,*)
 extension MyContainerType {
@@ -534,16 +534,16 @@ private func setupConstants() {
         assert([CNLabelHome,CNLabelWork,CNLabelOther] == [MyLabelHome,MyLabelWork,MyLabelOther])
         //
         assert([
-                CNContainerType.Unassigned.rawValue,
-                CNContainerType.Local.rawValue,
-                CNContainerType.Exchange.rawValue,
-                CNContainerType.CardDAV.rawValue,
+                CNContainerType.unassigned.rawValue,
+                CNContainerType.local.rawValue,
+                CNContainerType.exchange.rawValue,
+                CNContainerType.cardDAV.rawValue,
             ] == [
-                MyContainerType.Unassigned.rawValue,
-                MyContainerType.Local.rawValue,
-                MyContainerType.Exchange.rawValue,
-                MyContainerType.CardDAV.rawValue,
-            ])
+                MyContainerType.unassigned.rawValue,
+                MyContainerType.local.rawValue,
+                MyContainerType.exchange.rawValue,
+                MyContainerType.cardDAV.rawValue,
+            ] as [Int])
     }
     assert([kABHomeLabel as String,
         kABWorkLabel as String,
@@ -566,7 +566,7 @@ private func setupConstants() {
         // Alternate birthday
         //@availability(iOS, introduced=8.0)
         let kAddress = dlsym(RTLD_DEFAULT, "kABPersonAlternateBirthdayProperty")
-        let kABPersonAlternateBirthdayProperty = UnsafePointer<ABPropertyID>(kAddress).memory
+        let kABPersonAlternateBirthdayProperty = UnsafePointer<ABPropertyID>(kAddress!).pointee
         print(kABPersonAlternateBirthdayProperty)
         k2Key[kABPersonAlternateBirthdayProperty] = MyContactNonGregorianBirthdayKey
     }
@@ -607,7 +607,7 @@ private class CNRecordProperty: MyRecordProperty {
         self.record = CNRecord(contact: contactProperty.contact)
     }
     override var localizedPropertyName: String {
-        return CNContact.localizedStringForKey(contactProperty.key)
+        return CNContact.localizedString(forKey: contactProperty.key)
     }
 }
 
@@ -663,7 +663,7 @@ public class MyContainer: NSObject {
     private init(record: ABRecord) {
         self.record = record
         let sourceType = ABRecordCopyValue(record, kABSourceTypeProperty)!.takeRetainedValue() as! NSNumber
-        self._type = sourceType.integerValue
+        self._type = sourceType.intValue
         super.init()
     }
     private init(record: ABRecord?) {
@@ -698,18 +698,18 @@ public class MyContainer: NSObject {
         get {
             switch _type {
             case kABSourceTypeLocal: // deprecated, use CNContainerTypeLocal
-                return MyContainerType.Local
+                return MyContainerType.local
             case kABSourceTypeExchange: // deprecated, used CNContainerTypeExchange
-                return MyContainerType.Exchange
+                return MyContainerType.exchange
             case kABSourceTypeCardDAV: // deprecated, use CNContainerTypeCardDAV
-                return MyContainerType.CardDAV
+                return MyContainerType.cardDAV
             case kABSourceTypeCardDAVSearch, // deprecated
                 kABSourceTypeExchangeGAL, // deprecated
                 kABSourceTypeMobileMe, // deprecated
                 kABSourceTypeLDAP: // deprecated
                 fallthrough
             default:
-                return MyContainerType.Unassigned
+                return MyContainerType.unassigned
             }
         }
     }

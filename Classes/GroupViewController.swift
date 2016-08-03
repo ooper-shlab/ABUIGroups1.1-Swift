@@ -88,25 +88,16 @@ class GroupViewController: UITableViewController {
     private func checkAddressBookAccess() {
         switch MyAddressBook.authorizationStatus {
             // Update our UI if the user has granted access to their Contacts
-        case  .Authorized:
+        case  .authorized:
             self.accessGrantedForAddressBook()
             // Prompt the user for access to Contacts if there is no definitive answer
-        case .NotDetermined:
+        case .notDetermined:
             self.requestAddressBookAccess()
             // Display a message if the user has denied or restricted access to Contacts
-        case .Denied, .Restricted:
-            if #available(iOS 8.0, *) {
-                let alertController = UIAlertController(title: "Privacy Warning", message: "Permission was not granted for Contacts.", preferredStyle: .Alert)
-                alertController.addAction(UIAlertAction(title: "OK", style: .Cancel, handler: nil))
-                self.presentViewController(alertController, animated: true, completion: nil)
-            } else {
-                let alert = UIAlertView(title: "Privacy Warning",
-                    message: "Permission was not granted for Contacts.",
-                    delegate: nil,
-                    cancelButtonTitle: "OK"
-                )
-                alert.show()
-            }
+        case .denied, .restricted:
+            let alertController = UIAlertController(title: "Privacy Warning", message: "Permission was not granted for Contacts.", preferredStyle: .alert)
+            alertController.addAction(UIAlertAction(title: "OK", style: .cancel, handler: nil))
+            self.present(alertController, animated: true, completion: nil)
         }
     }
     
@@ -116,7 +107,7 @@ class GroupViewController: UITableViewController {
         
         self.addressBook.requestAccessForContacts {granted, error in
             if granted {
-                dispatch_async(dispatch_get_main_queue()) {
+                DispatchQueue.main.async {
                     self.accessGrantedForAddressBook()
                     
                 }
@@ -132,9 +123,9 @@ class GroupViewController: UITableViewController {
             self.sourcesAndGroups = try self.fetchGroupsInAddressBook(self.addressBook)
                 
             // Enable the Add button
-            self.addButton.enabled = true
+            self.addButton.isEnabled = true
             // Add the Edit button
-            self.navigationItem.leftBarButtonItem = self.editButtonItem()
+            self.navigationItem.leftBarButtonItem = self.editButtonItem
             
             self.tableView.reloadData()
         } catch let error {
@@ -190,7 +181,7 @@ class GroupViewController: UITableViewController {
     //MARK: Manage Address Book contacts
     
     // Create and add a new group to the address book database
-    private func addGroup(name: String, fromAddressBook myAddressBook: MyAddressBook) throws {
+    private func addGroup(_ name: String, fromAddressBook myAddressBook: MyAddressBook) throws {
         var sourceFound = false
         if !name.isEmpty {
             let newGroup = MyGroup.createInstance()
@@ -224,13 +215,13 @@ class GroupViewController: UITableViewController {
     
     
     // Remove a group from the given address book
-    private func deleteGroup(group: MyGroup, fromAddressBook myAddressBook: MyAddressBook) throws {
+    private func deleteGroup(_ group: MyGroup, fromAddressBook myAddressBook: MyAddressBook) throws {
         try myAddressBook.deleteGroup(group)
     }
     
     
     // Return a list of groups organized by sources
-    private func fetchGroupsInAddressBook(myAddressBook: MyAddressBook) throws -> [MySource] {
+    private func fetchGroupsInAddressBook(_ myAddressBook: MyAddressBook) throws -> [MySource] {
         var list: [MySource] = []
         // Get all the sources from the address book
         let allSources = try myAddressBook.allContainers()
@@ -256,29 +247,29 @@ class GroupViewController: UITableViewController {
     //MARK: Table view data source
     
     // Customize the number of sections in the table view
-    override func numberOfSectionsInTableView(tableView: UITableView) -> Int {
+    override func numberOfSections(in tableView: UITableView) -> Int {
         return self.sourcesAndGroups.count
     }
     
     
     // Customize section header titles
-    override func tableView(tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+    override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         return self.sourcesAndGroups[section].name
     }
     
     
     // Customize the number of rows in the table view
-    override func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return self.sourcesAndGroups[section].groups.count
     }
     
     
     // Customize the appearance of table view cells.
-    override func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCellWithIdentifier("groupCell", forIndexPath: indexPath) as UITableViewCell
+    override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "groupCell", for: indexPath) as UITableViewCell
         
-        let source = self.sourcesAndGroups[indexPath.section]
-        let group: MyGroup = source.groups[indexPath.row]
+        let source = self.sourcesAndGroups[(indexPath as NSIndexPath).section]
+        let group: MyGroup = source.groups[(indexPath as NSIndexPath).row]
         cell.textLabel?.text = group.name
         
         return cell
@@ -288,42 +279,42 @@ class GroupViewController: UITableViewController {
     //MARK: -
     //MARK: Editing rows
     
-    override func tableView(tableView: UITableView, editingStyleForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCellEditingStyle {
-        return .Delete
+    override func tableView(_ tableView: UITableView, editingStyleForRowAt indexPath: IndexPath) -> UITableViewCellEditingStyle {
+        return .delete
     }
     
     
-    override func setEditing(editing: Bool, animated: Bool) {
+    override func setEditing(_ editing: Bool, animated: Bool) {
         super.setEditing(editing, animated: animated)
         //Disable the Add button while editing
-        self.navigationItem.rightBarButtonItem!.enabled = !editing
+        self.navigationItem.rightBarButtonItem!.isEnabled = !editing
     }
     
     
     // Handle the deletion of a group
-    override func tableView(tableView: UITableView, commitEditingStyle editingStyle: UITableViewCellEditingStyle, forRowAtIndexPath indexPath: NSIndexPath) {
-        if editingStyle == .Delete {
-            let source = self.sourcesAndGroups[indexPath.section]
+    override func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCellEditingStyle, forRowAt indexPath: IndexPath) {
+        if editingStyle == .delete {
+            let source = self.sourcesAndGroups[(indexPath as NSIndexPath).section]
             // group to be deleted
-            let group = source.groups[indexPath.row]
+            let group = source.groups[(indexPath as NSIndexPath).row]
             
             do {
                 // Remove the group from the address book
                 try self.deleteGroup(group, fromAddressBook: self.addressBook)
                 
                 // Remove the above group from its associated source
-                source.groups.removeAtIndex(indexPath.row)
+                source.groups.remove(at: (indexPath as NSIndexPath).row)
                 
                 // Update the table view
-                tableView.deleteRowsAtIndexPaths([indexPath], withRowAnimation: .Fade)
+                tableView.deleteRows(at: [indexPath], with: .fade)
                 
                 // Remove the section from the table if the associated source does not contain any groups
                 if source.groups.count == 0 {
                     // Remove the source from sourcesAndGroups
                     self.sourcesAndGroups = self.sourcesAndGroups.filter{$0 !== source}
                     
-                    tableView.deleteSections(NSIndexSet(index: indexPath.section),
-                        withRowAnimation: .Fade)
+                    tableView.deleteSections(IndexSet(integer: (indexPath as NSIndexPath).section),
+                        with: .fade)
                 }
             } catch let error {
                 print(error)
@@ -345,9 +336,9 @@ class GroupViewController: UITableViewController {
     //MARK: Get user input
     
     // This method is called when the user taps Done in the "Add Group" view.
-    @IBAction func done(segue: UIStoryboardSegue) {
+    @IBAction func done(_ segue: UIStoryboardSegue) {
         if segue.identifier == "returnInput" {
-            if let addGroupViewController = segue.sourceViewController as? AddGroupViewController {
+            if let addGroupViewController = segue.source as? AddGroupViewController {
                 do {
                     try self.addGroup(addGroupViewController.group!, fromAddressBook: self.addressBook)
                     self.tableView.reloadData()
@@ -355,15 +346,15 @@ class GroupViewController: UITableViewController {
                     print(error)
                 }
             }
-            self.dismissViewControllerAnimated(true, completion: nil)
+            self.dismiss(animated: true, completion: nil)
         }
     }
     
     
     // This method is called when the user taps Cancel in the "Add Group" view.
-    @IBAction func cancel(segue: UIStoryboardSegue) {
+    @IBAction func cancel(_ segue: UIStoryboardSegue) {
         if segue.identifier == "cancelInput" {
-            self.dismissViewControllerAnimated(true, completion: nil)
+            self.dismiss(animated: true, completion: nil)
         }
     }
     

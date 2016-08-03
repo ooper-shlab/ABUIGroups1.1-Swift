@@ -20,11 +20,11 @@ If you need a stable sample code in Swift, retrieve any of the former version.
 ===========================================================================
 BUILD REQUIREMENTS:
 
-Xcode 7, iOS 9 SDK
+Xcode 8 beta 4, iOS 10 SDK
 
 ===========================================================================
 RUNTIME REQUIREMENTS:
 
-iOS 7 or later
+iOS 8 or later
 
 ===========================================================================

@@ -61,7 +61,7 @@ class AddGroupViewController: UIViewController, UITextFieldDelegate {
     @IBOutlet private weak var myTextField: UITextField!
     
     
-    func textFieldShouldReturn(textField: UITextField) -> Bool {
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
         // When the user presses return, take focus away from the text field so
         // that the keyboard is dismissed.
         if textField === self.myTextField {
@@ -72,7 +72,7 @@ class AddGroupViewController: UIViewController, UITextFieldDelegate {
     
     
     // Used to send back the user's input to GroupViewController
-    override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
+    override func prepare(for segue: UIStoryboardSegue, sender: AnyObject?) {
         if segue.identifier == "returnInput" {
             if !self.myTextField.text!.isEmpty {
                 self.group = self.myTextField.text
