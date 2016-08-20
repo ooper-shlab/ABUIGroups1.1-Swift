@@ -43,9 +43,9 @@ import Contacts
 import ContactsUI
 
 //
-// compatibility wrapper classes for AddressBook/Contacts and AddressBookUI/ContactsUI
+// compatibility wrapper classes for AddressBook/Contacts
 //
-//  [Caution] These wrapper classes are not intended to cover all usage of AddressBook/AddressBookUI.
+//  [Caution] These wrapper classes are not intended to cover all usage of AddressBook
 //  You may find many things need to be modified to use this file in your app.
 //
 
@@ -65,7 +65,7 @@ enum MyAddressBookError: Error {
 //MARK: ABAddressBook/CNContactStore
 public class MyAddressBook: NSObject {
     private let addressBook: ABAddressBook!
-    private init(addressBook: ABAddressBook?) {
+    fileprivate init(addressBook: ABAddressBook?) {
         self.addressBook = addressBook
         setupConstants()
     }
@@ -76,7 +76,7 @@ public class MyAddressBook: NSObject {
         } else {
             let options: [NSObject: AnyObject]? = nil
             var cfError: Unmanaged<CFError>?
-            if let addressBook: ABAddressBook = ABAddressBookCreateWithOptions(options, &cfError)?.takeRetainedValue() {
+            if let addressBook: ABAddressBook = ABAddressBookCreateWithOptions(options as CFDictionary!, &cfError)?.takeRetainedValue() {
                 return MyAddressBook(addressBook: addressBook)
             } else {
                 if cfError != nil {
@@ -93,7 +93,7 @@ public class MyAddressBook: NSObject {
         return MyAuthorizationStatus(abAuthorizationStatus: abAuthorizationStatus)
     }
     
-    public func requestAccessForContacts(_ completion: (Bool, Error?)->Void) {
+    public func requestAccessForContacts(_ completion: @escaping (Bool, Error?)->Void) {
         let handler: ABAddressBookRequestAccessCompletionHandler = {granted, error in
             completion(granted, error)
         }
@@ -124,7 +124,7 @@ public class MyAddressBook: NSObject {
     
     public func allContainers() throws -> [MyContainer] {
         if let allSources = ABAddressBookCopyArrayOfAllSources(addressBook)?.takeRetainedValue() {
-            return (allSources as NSArray).map{MyContainer(record: $0)}
+            return (allSources as NSArray).map{MyContainer(record: $0 as ABRecord)}
         } else {
             throw MyAddressBookError.copy
         }
@@ -140,7 +140,7 @@ public class MyAddressBook: NSObject {
     
     public func allGroupsInContainer(_ container: MyContainer) throws -> [MyGroup] {
         if let allGroups = ABAddressBookCopyArrayOfAllGroupsInSource(addressBook, container.record)?.takeRetainedValue() {
-            return (allGroups as NSArray).map{MyGroup(record: $0)}
+            return (allGroups as NSArray).map{MyGroup(record: $0 as ABRecord?)}
         } else {
             throw MyAddressBookError.copy
         }
@@ -167,7 +167,7 @@ public class MyAddressBook: NSObject {
 @available(iOS 9.0, *)
 private class CNAddressBook: MyAddressBook {
     private let contactStore: CNContactStore
-    private init(contactStore: CNContactStore) {
+    fileprivate init(contactStore: CNContactStore) {
         self.contactStore = contactStore
         super.init(addressBook: nil)
     }
@@ -177,7 +177,7 @@ private class CNAddressBook: MyAddressBook {
         return MyAuthorizationStatus(cnAuthorizationStatus: cnAuthorizationStatus)
     }
     
-    private override func requestAccessForContacts(_ completion: (Bool, Error?) -> Void) {
+    private override func requestAccessForContacts(_ completion: @escaping (Bool, Error?) -> Void) {
         self.contactStore.requestAccess(for: .contacts, completionHandler: completion)
     }
     
@@ -253,153 +253,10 @@ private extension MyAuthorizationStatus {
     }
 }
 
-//MARK: ABPeoplePickerNavigationController/CNContactPickerViewController
-/*
-public class MyPeoplePickerNavigationControllerSetupper: NSObject {
-    var peoplePickerNaviationController: ABPeoplePickerNavigationController?
-    private init(peoplePickerNaviationController: ABPeoplePickerNavigationController?) {
-        self.peoplePickerNaviationController = peoplePickerNaviationController
-    }
-    private override init() {
-        self.peoplePickerNaviationController = ABPeoplePickerNavigationController()
-    }
-    ///Returns a delegateWrapper which needs to be retained while `delegate` is alive.
-    public func setPickerDelegate(delegate: MyPeoplePickerNavigationControllerDelegate) -> AnyObject {
-        let abDelegateWrapper = MyPeoplePickerNavigationControllerDelegateABWrapper(delegate: delegate)
-        peoplePickerNaviationController!.peoplePickerDelegate = abDelegateWrapper
-        return abDelegateWrapper
-    }
-    public var displayedPropertyKeys: [String]? {
-        get {
-            if let displayedProperties = peoplePickerNaviationController!.displayedProperties {
-                return displayedProperties.flatMap{k2Key[$0.intValue]}
-            } else {
-                return nil
-            }
-        }
-        set {
-            if let keys = newValue {
-                peoplePickerNaviationController!.displayedProperties = keys.flatMap{Key2k[$0].map(Int.init)}
-            } else {
-                peoplePickerNaviationController!.displayedProperties = nil
-            }
-        }
-    }
-    //Wrapping all functionality of UIViewController seems to be an amount of work...
-    public var ViewController: UIViewController {return peoplePickerNaviationController!}
-    
-    class func createInstance() -> MyPeoplePickerNavigationControllerSetupper {
-        if #available(iOS 9.0, *) {
-            return CNPeoplePickerNavigationControllerSetupper()
-        } else {
-            return MyPeoplePickerNavigationControllerSetupper()
-        }
-    }
-}
-@available(iOS 9.0, *)
-public class CNPeoplePickerNavigationControllerSetupper: MyPeoplePickerNavigationControllerSetupper {
-    var contactPickerViewController: CNContactPickerViewController?
-    private override init() {
-        self.contactPickerViewController = CNContactPickerViewController()
-        super.init(peoplePickerNaviationController: nil)
-    }
-    public override func setPickerDelegate(delegate: MyPeoplePickerNavigationControllerDelegate) -> AnyObject{
-        let cnDelegateWrapper = MyPeoplePickerNavigationControllerDelegateCNWrapper(delegate: delegate)
-        contactPickerViewController!.delegate = cnDelegateWrapper
-        return cnDelegateWrapper
-    }
-    override public var displayedPropertyKeys: [String]? {
-        get {
-            return contactPickerViewController!.displayedPropertyKeys
-        }
-        set {
-            contactPickerViewController!.displayedPropertyKeys = newValue
-        }
-    }
-    override public var ViewController: UIViewController {return contactPickerViewController!}
-}
-*/
-
-//MARK: ABPeoplePickerNavigationControllerDelegate
-/*
-@objc public protocol MyPeoplePickerNavigationControllerDelegate {
-    
-    // Called after a person has been selected by the user.
-    //### You may need to comment in this declaration.
-//    optional func peoplePickerNavigationController(peoplePicker: MyPeoplePickerNavigationController, didSelectPerson person: MyRecord)
-    
-    // Called after a property has been selected by the user.
-    optional func peoplePickerNavigationController(peoplePicker: MyPeoplePickerNavigationControllerType, didSelectPersonProperty: MyRecordProperty)
-    
-    // Called after the user has pressed cancel.
-    optional func peoplePickerNavigationControllerDidCancel(peoplePicker: MyPeoplePickerNavigationControllerType)
-}
-@objc public protocol MyPeoplePickerNavigationControllerType {
-    func dismissViewControllerAnimated(animated: Bool, completion: (()->Void)?)
-}
-extension ABPeoplePickerNavigationController: MyPeoplePickerNavigationControllerType {}
-@available(iOS 9.0, *)
-extension CNContactPickerViewController: MyPeoplePickerNavigationControllerType {}
-private class MyPeoplePickerNavigationControllerDelegateABWrapper: NSObject, ABPeoplePickerNavigationControllerDelegate {
-    weak var delegate: MyPeoplePickerNavigationControllerDelegate!
-    init(delegate: MyPeoplePickerNavigationControllerDelegate) {
-        self.delegate = delegate
-    }
-    //### You may need to comment in this declaration.
-//    @objc private func peoplePickerNavigationController(peoplePicker: ABPeoplePickerNavigationController, didSelectPerson person: ABRecord) {
-//        let record = MyRecord(person: person)
-//        delegate.peoplePickerNavigationController?(peoplePicker, didSelectPerson: record)
-//    }
-    
-    @available(iOS 8.0, *)
-    @objc private func peoplePickerNavigationController(peoplePicker: ABPeoplePickerNavigationController, didSelectPerson person: ABRecord, property: ABPropertyID, identifier: ABMultiValueIdentifier) {
-        let recordProperty = MyRecordProperty(person: person, propertyID: property, multiValueIdentifier: identifier)
-        delegate.peoplePickerNavigationController?(peoplePicker, didSelectPersonProperty: recordProperty)
-    }
-    //@available(iOS, introduced=2.0, deprecated=8.0)
-    @objc private func peoplePickerNavigationController(peoplePicker: ABPeoplePickerNavigationController, shouldContinueAfterSelectingPerson person: ABRecord, property: ABPropertyID, identifier: ABMultiValueIdentifier) -> Bool {
-        if let handler = delegate.peoplePickerNavigationController as ((MyPeoplePickerNavigationControllerType, didSelectPersonProperty: MyRecordProperty)->Void)? {
-            let recordProperty = MyRecordProperty(person: person, propertyID: property, multiValueIdentifier: identifier)
-            handler(peoplePicker, didSelectPersonProperty: recordProperty)
-            peoplePicker.dismissViewControllerAnimated(true, completion: nil)
-            return false
-        } else {
-            return true
-        }
-    }
-
-
-    @objc private func peoplePickerNavigationControllerDidCancel(peoplePicker: ABPeoplePickerNavigationController) {
-        delegate.peoplePickerNavigationControllerDidCancel?(peoplePicker)
-    }
-}
-@available(iOS 9.0, *)
-private class MyPeoplePickerNavigationControllerDelegateCNWrapper: NSObject, CNContactPickerDelegate {
-    weak var delegate: MyPeoplePickerNavigationControllerDelegate!
-    init(delegate: MyPeoplePickerNavigationControllerDelegate) {
-        self.delegate = delegate
-    }
-    //### You may need to comment in this declaration.
-//    @objc func contactPicker(picker: CNContactPickerViewController, didSelectContact contact: CNContact) {
-//        let record = CNRecord(contact: contact)
-//        delegate?.peoplePickerNavigationController?(picker, didSelectPerson: record)
-//    }
-
-    @objc func contactPicker(picker: CNContactPickerViewController, didSelectContactProperty contactProperty: CNContactProperty) {
-        let property = CNRecordProperty(contactProperty: contactProperty)
-        delegate?.peoplePickerNavigationController?(picker, didSelectPersonProperty: property)
-    }
-
-    @objc func contactPickerDidCancel(picker: CNContactPickerViewController) {
-        delegate?.peoplePickerNavigationControllerDidCancel?(picker)
-    }
-}
-*/
-
 //MARK: ABRecord(person)/CNContact
 public class MyRecord: NSObject {
     private var person: ABRecord!
-    private init(person: ABRecord?) {
+    fileprivate init(person: ABRecord?) {
         self.person = person
     }
     public var compositeName: String? {
@@ -407,7 +264,7 @@ public class MyRecord: NSObject {
     }
     public func appendEmail(_ mail: String, withLabel label: String) throws {
         let email: ABMutableMultiValue = ABMultiValueCreateMutable(ABPropertyType(kABStringPropertyType)).takeRetainedValue()
-        guard ABMultiValueAddValueAndLabel(email, mail, kABOtherLabel, nil) else {
+        guard ABMultiValueAddValueAndLabel(email, mail as CFTypeRef!, kABOtherLabel, nil) else {
             throw MyAddressBookError.addValue
         }
         var anError: Unmanaged<CFError>?
@@ -432,7 +289,7 @@ public class MyRecord: NSObject {
 @available(iOS 9.0, *)
 private class CNRecord: MyRecord {
     private let contact: CNContact
-    private init(contact: CNContact) {
+    fileprivate init(contact: CNContact) {
         self.contact = contact
         super.init(person: nil)
     }
@@ -518,7 +375,7 @@ public enum MyContainerType: Int {
 }
 @available(iOS 9.0,*)
 extension MyContainerType {
-    private init(cnContainerType: CNContainerType) {
+    fileprivate init(cnContainerType: CNContainerType) {
         self.init(rawValue: cnContainerType.rawValue)!
     }
 }
@@ -561,13 +418,12 @@ private func setupConstants() {
 //    }
     //### `Just works` code for iOS 7..9.
     //Using dlsym is not recommended, let's hope this will work until we have no need to support iOS 7.
-    let RTLD_DEFAULT = UnsafeMutablePointer<Void>(bitPattern: -2)
-    if dlsym(RTLD_DEFAULT, "kABPersonAlternateBirthdayProperty") != nil {
+    let RTLD_DEFAULT = UnsafeMutableRawPointer(bitPattern: -2)
+    if let kAddress = dlsym(RTLD_DEFAULT, "kABPersonAlternateBirthdayProperty") {
         // Alternate birthday
         //@availability(iOS, introduced=8.0)
-        let kAddress = dlsym(RTLD_DEFAULT, "kABPersonAlternateBirthdayProperty")
-        let kABPersonAlternateBirthdayProperty = UnsafePointer<ABPropertyID>(kAddress!).pointee
-        print(kABPersonAlternateBirthdayProperty)
+        let kABPersonAlternateBirthdayProperty = kAddress.load(as: ABPropertyID.self)
+        //print(kABPersonAlternateBirthdayProperty)
         k2Key[kABPersonAlternateBirthdayProperty] = MyContactNonGregorianBirthdayKey
     }
     for (k, Key) in k2Key {
@@ -583,17 +439,17 @@ private func setupConstants() {
 
 //MARK: CNContactProperty
 public class MyRecordProperty: NSObject {
-    private(set) public var record: MyRecord!
+    fileprivate(set) public var record: MyRecord!
     private var person: ABRecord!
     private var propertyID: ABPropertyID = 0
     private var multiValueIdentifier: ABMultiValueIdentifier = 0
-    private init(person: ABRecord, propertyID: ABPropertyID, multiValueIdentifier: ABMultiValueIdentifier) {
+    fileprivate init(person: ABRecord, propertyID: ABPropertyID, multiValueIdentifier: ABMultiValueIdentifier) {
         self.person = person
         self.propertyID = propertyID
         self.multiValueIdentifier = multiValueIdentifier
         self.record = MyRecord(person: person)
     }
-    private override init() {}
+    fileprivate override init() {}
     public var localizedPropertyName: String {
         return ABPersonCopyLocalizedPropertyName(propertyID).takeRetainedValue() as String
     }
@@ -613,16 +469,16 @@ private class CNRecordProperty: MyRecordProperty {
 
 //MARK: ABRecord(group)/CNGroup
 public class MyGroup: NSObject {
-    private var _name: String
+    fileprivate var _name: String
     public var name: String {
         get {return _name}
         set {
-            ABRecordSetValue(record, kABGroupNameProperty, newValue, nil)
+            ABRecordSetValue(record, kABGroupNameProperty, newValue as CFTypeRef!, nil)
             _name = newValue
         }
     }
-    private var record: ABRecord!
-    private init(record: ABRecord?) {
+    fileprivate var record: ABRecord!
+    fileprivate init(record: ABRecord?) {
         self.record = record
         self._name = (ABRecordCopyCompositeName(record)?.takeRetainedValue() as String?) ?? ""
         super.init()
@@ -659,14 +515,14 @@ private class MyCNGroup: MyGroup {
 public class MyContainer: NSObject {
     private var _name: String?
     private var _type: Int = 0
-    private var record: ABRecord!
-    private init(record: ABRecord) {
+    fileprivate var record: ABRecord!
+    fileprivate init(record: ABRecord) {
         self.record = record
         let sourceType = ABRecordCopyValue(record, kABSourceTypeProperty)!.takeRetainedValue() as! NSNumber
         self._type = sourceType.intValue
         super.init()
     }
-    private init(record: ABRecord?) {
+    fileprivate init(record: ABRecord?) {
         self.record = record
         super.init()
     }
@@ -716,7 +572,7 @@ public class MyContainer: NSObject {
 }
 @available(iOS 9.0, *)
 private class MyCNContainer: MyContainer {
-    private var container: CNContainer
+    fileprivate var container: CNContainer
     init(container: CNContainer) {
         self.container = container
         super.init(record: nil)
@@ -732,374 +588,4 @@ private class MyCNContainer: MyContainer {
         }
     }
 }
-//MARK: ABPersonViewController/CNContactViewController(forContact:)
-/*
-public class MyPersonViewControllerSetupperFactory {
-    class func createInstanceForPerson(record: MyRecord) -> MyPersonViewControllerSetupper {
-        if #available(iOS 9.0, *) {
-            let contact = (record as! CNRecord).contact
-            return CNContactViewControllerSetupperForContact(contact: contact)
-        } else {
-            return MyPersonViewControllerSetupper(person: record.person)
-        }
-    }
-    class func createInstanceForNewPerson() -> MyNewPersonViewControllerSetupper {
-        if #available(iOS 9.0, *) {
-            return CNContactViewControllerSetupperForNewContact()
-        } else {
-            return MyNewPersonViewControllerSetupper()
-        }
-    }
-    class func createInstanceForUnknownPerson(record: MyRecord) -> MyUnknownPersonViewControllerSetupper {
-        if #available(iOS 9.0, *) {
-            let contact = (record as! CNRecord).contact
-            return CNContactViewControllerSetupperForUnknownContact(contact: contact)
-        } else {
-            let controller = MyUnknownPersonViewControllerSetupper(person: record.person)
-            return controller
-        }
-    }
-}
-public class MyPersonViewControllerSetupper: NSObject {
-    let abPersonViewController: ABPersonViewController!
-    ///Returns a delegateWrapper which needs to be retained while `delegate` is alive.
-    private init(abPersonViewController: ABPersonViewController?) {
-        self.abPersonViewController = abPersonViewController
-        super.init()
-    }
-    private init(person: ABRecord) {
-        self.abPersonViewController = ABPersonViewController()
-        super.init()
-        self.abPersonViewController.displayedPerson = person
-    }
-    public func setPersonDelegate(delegate: MyPersonViewControllerDelegate) -> AnyObject {
-        let delegateWrapper = MyPersonViewControllerDelegateABWrapper(delegate: delegate)
-        abPersonViewController.personViewDelegate = delegateWrapper
-        return delegateWrapper
-    }
-    public var allowsEditing: Bool {
-        get {
-            return abPersonViewController.allowsEditing
-        }
-        set {
-            abPersonViewController.allowsEditing = newValue
-        }
-    }
-    
-    public var ViewController: UIViewController {
-        return abPersonViewController
-    }
-}
-@available(iOS 9.0, *)
-private class CNContactViewControllerSetupperForContact: MyPersonViewControllerSetupper {
-    let cnPersonViewController: CNContactViewController
-    init(contact: CNContact) {
-        self.cnPersonViewController = CNContactViewController(forContact: contact)
-        super.init(abPersonViewController: nil)
-    }
-    override func setPersonDelegate(delegate: MyPersonViewControllerDelegate) -> AnyObject {
-        let delegateWrapper = MyPersonViewControllerDelegateCNWrapper(personDelegate: delegate)
-        cnPersonViewController.delegate = delegateWrapper
-        return delegateWrapper
-    }
-    override var allowsEditing: Bool {
-        get {
-            return cnPersonViewController.allowsEditing
-        }
-        set {
-            cnPersonViewController.allowsEditing = newValue
-        }
-    }
-    
-    override var ViewController: UIViewController {
-        return cnPersonViewController
-    }
-}
-*/
 
-//MARK: ABNewPersonViewControllerDelegate/CNContactViewControllerDelegate
-/*
-@objc public protocol MyPersonViewControllerType {}
-extension ABPersonViewController: MyPersonViewControllerType {}
-@available(iOS 9.0, *)
-extension CNContactViewController: MyPersonViewControllerType {}
-public protocol MyPersonViewControllerDelegate: class {
-    
-    // Called when the user selects an individual value in the Person view, identifier will be kABMultiValueInvalidIdentifier if a single value property was selected.
-    // Return NO if you do not want anything to be done or if you are handling the actions yourself.
-    // Return YES if you want the ABPersonViewController to perform its default action.
-    func personViewController(personViewController: MyPersonViewControllerType, shouldPerformDefaultActionForProperty: MyRecordProperty) -> Bool
-    
-}
-private class MyPersonViewControllerDelegateABWrapper: NSObject, ABPersonViewControllerDelegate {
-    weak var delegate: MyPersonViewControllerDelegate?
-    init(delegate: MyPersonViewControllerDelegate) {
-        self.delegate = delegate
-    }
-    @objc private func personViewController(personViewController: ABPersonViewController, shouldPerformDefaultActionForPerson person: ABRecord, property: ABPropertyID, identifier: ABMultiValueIdentifier) -> Bool {
-        let recordProperty = MyRecordProperty(person: person, propertyID: property, multiValueIdentifier: identifier)
-        return delegate?.personViewController(personViewController, shouldPerformDefaultActionForProperty: recordProperty) ?? true
-    }
-}
-@available(iOS 9.0, *)
-private class MyPersonViewControllerDelegateCNWrapper: NSObject, CNContactViewControllerDelegate {
-    weak var personDelegate: MyPersonViewControllerDelegate?
-    init(personDelegate: MyPersonViewControllerDelegate) {
-        self.personDelegate = personDelegate
-    }
-    @objc private func contactViewController(viewController: CNContactViewController, didCompleteWithContact contact: CNContact?) {
-        //
-    }
-    @objc private func contactViewController(viewController: CNContactViewController, shouldPerformDefaultActionForContactProperty property: CNContactProperty) -> Bool {
-        let recordProperty = CNRecordProperty(contactProperty: property)
-        return personDelegate?.personViewController(viewController, shouldPerformDefaultActionForProperty: recordProperty) ?? true
-    }
-}
-*/
-
-//MARK: ABNewPersonViewController
-/*
-public class MyNewPersonViewControllerSetupper: NSObject {
-    private let abNewPersonViewController: ABNewPersonViewController!
-    private init(abNewPersonViewController: ABNewPersonViewController?) {
-        self.abNewPersonViewController = abNewPersonViewController
-        super.init()
-    }
-    private override init() {
-        self.abNewPersonViewController = ABNewPersonViewController()
-        super.init()
-    }
-    ///Returns a delegateWrapper which needs to be retained while `delegate` is alive.
-    public func setNewPersonDelegate(delegate: MyNewPersonViewControllerDelegate)->AnyObject {
-        let delegateWrapper = MyNewPersonViewControllerDelegateABWrapper(delegate: delegate)
-        abNewPersonViewController.newPersonViewDelegate = delegateWrapper
-        return delegateWrapper
-    }
-    
-    public var ViewController: UIViewController {
-        return abNewPersonViewController
-    }
-}
-@available(iOS 9.0, *)
-private class CNContactViewControllerSetupperForNewContact: MyNewPersonViewControllerSetupper {
-    let cnNewPersonViewController: CNContactViewController
-    override init() {
-        self.cnNewPersonViewController = CNContactViewController(forNewContact: nil)
-        super.init(abNewPersonViewController: nil)
-    }
-    override func setNewPersonDelegate(delegate: MyNewPersonViewControllerDelegate)->AnyObject {
-        let delegateWrapper = MyNewPersonViewControllerDelegateCNWrapper(newPersonDelegate: delegate)
-        cnNewPersonViewController.delegate = delegateWrapper
-        return delegateWrapper
-    }
-    
-    override var ViewController: UIViewController {
-        return cnNewPersonViewController
-    }
-}
-*/
-
-//MARK: ABNewPersonViewControllerDelegate/CNContactViewControllerDelegate
-/*
-@objc public protocol MyNewPersonViewControllerType {}
-extension ABNewPersonViewController: MyNewPersonViewControllerType {}
-@available(iOS 9.0, *)
-extension CNContactViewController: MyNewPersonViewControllerType {}
-public protocol MyNewPersonViewControllerDelegate: class {
-    
-    // Called when the user selects Save or Cancel. If the new person was saved, person will be
-    // a valid person that was saved into the Address Book. Otherwise, person will be NULL.
-    // It is up to the delegate to dismiss the view controller.
-    func newPersonViewController(newPersonView: MyNewPersonViewControllerType, didCompleteWithNewPerson record: MyRecord?)
-    
-}
-private class MyNewPersonViewControllerDelegateABWrapper: NSObject, ABNewPersonViewControllerDelegate {
-    weak var delegate: MyNewPersonViewControllerDelegate?
-    init(delegate: MyNewPersonViewControllerDelegate) {
-        self.delegate = delegate
-    }
-    @objc private func newPersonViewController(newPersonView: ABNewPersonViewController, didCompleteWithNewPerson person: ABRecord?) {
-        let record = MyRecord(person: person)
-        delegate?.newPersonViewController(newPersonView, didCompleteWithNewPerson: record)
-    }
-}
-@available(iOS 9.0, *)
-private class MyNewPersonViewControllerDelegateCNWrapper: NSObject, CNContactViewControllerDelegate {
-    weak var newPersonDelegate: MyNewPersonViewControllerDelegate?
-    init(newPersonDelegate: MyNewPersonViewControllerDelegate) {
-        self.newPersonDelegate = newPersonDelegate
-    }
-    @objc private func contactViewController(viewController: CNContactViewController, didCompleteWithContact contact: CNContact?) {
-        let record = contact.map(CNRecord.init)
-        newPersonDelegate?.newPersonViewController(viewController, didCompleteWithNewPerson: record)
-    }
-    @objc private func contactViewController(viewController: CNContactViewController, shouldPerformDefaultActionForContactProperty property: CNContactProperty) -> Bool {
-        return true
-    }
-}
-*/
-
-//MARK: ABUnknownPersonViewController
-/*
-@objc public class MyUnknownPersonViewControllerSetupper: NSObject {
-    private let abUnknownPersonViewController: ABUnknownPersonViewController!
-    private init(abUnknownPersonViewController: ABUnknownPersonViewController?) {
-        self.abUnknownPersonViewController = abUnknownPersonViewController
-        super.init()
-    }
-    private convenience init(person: ABRecord) {
-        self.init(abUnknownPersonViewController: ABUnknownPersonViewController())
-        self.abUnknownPersonViewController.displayedPerson = person
-    }
-    ///Returns a delegateWrapper which needs to be retained while `delegate` is alive.
-    @objc public func setUnknownPersonDelegate(delegate: MyUnknownPersonViewControllerDelegate)->AnyObject {
-        let delegateWrapper = MyUnknownPersonViewControllerDelegateABWrapper(delegate: delegate)
-        abUnknownPersonViewController.unknownPersonViewDelegate = delegateWrapper
-        return delegateWrapper
-    }
-    public func allowsEditing(allows: Bool, forAddressBook addressBook: MyAddressBook) {
-        abUnknownPersonViewController.addressBook = addressBook.addressBook
-        abUnknownPersonViewController.allowsAddingToAddressBook = allows
-    }
-    public var allowsActions: Bool {
-        get {
-            return abUnknownPersonViewController.allowsActions
-        }
-        set {
-            abUnknownPersonViewController.allowsActions = newValue
-        }
-    }
-    public var alternateName: String? {
-        get {
-            return abUnknownPersonViewController.alternateName
-        }
-        set {
-            abUnknownPersonViewController.alternateName = newValue
-        }
-    }
-    public var title: String? {
-        get {
-            return abUnknownPersonViewController.title
-        }
-        set {
-            abUnknownPersonViewController.title = newValue
-        }
-    }
-    public var message: String? {
-        get {
-            return abUnknownPersonViewController.message
-        }
-        set {
-            abUnknownPersonViewController.message = newValue
-        }
-    }
-    
-    public var ViewController: UIViewController {
-        return abUnknownPersonViewController
-    }
-}
-@available(iOS 9.0, *)
-private class CNContactViewControllerSetupperForUnknownContact: MyUnknownPersonViewControllerSetupper {
-    private let cnUnknownPersonViewController: CNContactViewController
-    private init(contact: CNContact) {
-        self.cnUnknownPersonViewController = CNContactViewController(forUnknownContact: contact)
-        super.init(abUnknownPersonViewController: nil)
-    }
-    override func setUnknownPersonDelegate(delegate: MyUnknownPersonViewControllerDelegate)->AnyObject {
-        let delegateWrapper = MyUnknownPersonViewControllerDelegateCNWrapper(unknownPersonDelegate: delegate)
-        cnUnknownPersonViewController.delegate = delegateWrapper
-        return delegateWrapper
-    }
-    override func allowsEditing(allows: Bool, forAddressBook addressBook: MyAddressBook) {
-        cnUnknownPersonViewController.contactStore = (addressBook as! CNAddressBook).contactStore
-        cnUnknownPersonViewController.allowsEditing = allows
-    }
-    override var allowsActions: Bool {
-        get {
-            return cnUnknownPersonViewController.allowsActions
-        }
-        set {
-            cnUnknownPersonViewController.allowsActions = newValue
-        }
-    }
-    override var alternateName: String? {
-        get {
-            return cnUnknownPersonViewController.alternateName
-        }
-        set {
-            cnUnknownPersonViewController.alternateName = newValue
-        }
-    }
-    override var title: String? {
-        get {
-            return cnUnknownPersonViewController.title
-        }
-        set {
-            cnUnknownPersonViewController.title = newValue
-        }
-    }
-    override var message: String? {
-        get {
-            return cnUnknownPersonViewController.message
-        }
-        set {
-            cnUnknownPersonViewController.message = newValue
-        }
-    }
-    
-    override var ViewController: UIViewController {
-        return cnUnknownPersonViewController
-    }
-}
-*/
-
-//MARK: ABUnknownPersonViewControllerDelegate/CNContactViewControllerDelegate
-/*
-@objc public protocol MyUnknownPersonViewControllerType {}
-extension ABUnknownPersonViewController: MyUnknownPersonViewControllerType {}
-@available(iOS 9.0, *)
-extension CNContactViewController: MyUnknownPersonViewControllerType {}
-@objc public protocol MyUnknownPersonViewControllerDelegate {
-    
-    // Called when picking has completed.  If picking was canceled, 'person' will be NULL.
-    // Otherwise, person will be either a non-NULL resolved contact, or newly created and
-    // saved contact, in both cases, person will be a valid contact in the Address Book.
-    // It is up to the delegate to dismiss the view controller.
-    func unknownPersonViewController(unknownCardViewController: MyUnknownPersonViewControllerType, didResolveToPerson record: MyRecord?);
-    
-    // Called when the user selects an individual value in the unknown person view, identifier will be kABMultiValueInvalidIdentifier if a single value property was selected.
-    // Return NO if you do not want anything to be done or if you are handling the actions yourself.
-    // Return YES if you want the ABUnknownPersonViewController to perform its default action.
-    optional func unknownPersonViewController(personViewController: MyUnknownPersonViewControllerType, shouldPerformDefaultActionForProperty: MyRecordProperty) -> Bool
-    
-}
-private class MyUnknownPersonViewControllerDelegateABWrapper: NSObject, ABUnknownPersonViewControllerDelegate {
-    weak var delegate: MyUnknownPersonViewControllerDelegate?
-    init(delegate: MyUnknownPersonViewControllerDelegate) {
-        self.delegate = delegate
-    }
-    @objc private func unknownPersonViewController(personViewController: ABUnknownPersonViewController, shouldPerformDefaultActionForPerson person: ABRecord, property: ABPropertyID, identifier: ABMultiValueIdentifier) -> Bool {
-        let recordProperty = MyRecordProperty(person: person, propertyID: property, multiValueIdentifier: identifier)
-        return delegate?.unknownPersonViewController?(personViewController, shouldPerformDefaultActionForProperty: recordProperty) ?? true
-    }
-    @objc private func unknownPersonViewController(unknownCardViewController: ABUnknownPersonViewController, didResolveToPerson person: ABRecord?) {
-        let record = MyRecord(person: person)
-        delegate?.unknownPersonViewController(unknownCardViewController, didResolveToPerson: record)
-    }
-}
-@available(iOS 9.0, *)
-private class MyUnknownPersonViewControllerDelegateCNWrapper: NSObject, CNContactViewControllerDelegate {
-    weak var unknownPersonDelegate: MyUnknownPersonViewControllerDelegate?
-    init(unknownPersonDelegate: MyUnknownPersonViewControllerDelegate) {
-        self.unknownPersonDelegate = unknownPersonDelegate
-    }
-    @objc private func contactViewController(viewController: CNContactViewController, didCompleteWithContact contact: CNContact?) {
-        let record = contact.map(CNRecord.init)
-        unknownPersonDelegate?.unknownPersonViewController(viewController, didResolveToPerson: record)
-    }
-    @objc private func contactViewController(viewController: CNContactViewController, shouldPerformDefaultActionForContactProperty property: CNContactProperty) -> Bool {
-        let recordProperty = CNRecordProperty(contactProperty: property)
-        return unknownPersonDelegate?.unknownPersonViewController?(viewController, shouldPerformDefaultActionForProperty: recordProperty) ?? true
-    }
-}
-*/

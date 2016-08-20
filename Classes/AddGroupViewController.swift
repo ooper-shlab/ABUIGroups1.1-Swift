@@ -72,7 +72,7 @@ class AddGroupViewController: UIViewController, UITextFieldDelegate {
     
     
     // Used to send back the user's input to GroupViewController
-    override func prepare(for segue: UIStoryboardSegue, sender: AnyObject?) {
+    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
         if segue.identifier == "returnInput" {
             if !self.myTextField.text!.isEmpty {
                 self.group = self.myTextField.text
