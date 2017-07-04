@@ -196,7 +196,7 @@ class GroupViewController: UITableViewController {
             let sourceName = groupSource.name
             
             // Look for the above source among the sources in sourcesAndGroups
-            for source in self.sourcesAndGroups as NSArray as! [MySource] {
+            for source in self.sourcesAndGroups {
                 if source.name == sourceName {
                     // Associate the new group with the found source
                     source.groups.append(newGroup)
@@ -266,10 +266,10 @@ class GroupViewController: UITableViewController {
     
     // Customize the appearance of table view cells.
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "groupCell", for: indexPath) as UITableViewCell
+        let cell = tableView.dequeueReusableCell(withIdentifier: "groupCell", for: indexPath)
         
-        let source = self.sourcesAndGroups[(indexPath as NSIndexPath).section]
-        let group: MyGroup = source.groups[(indexPath as NSIndexPath).row]
+        let source = self.sourcesAndGroups[indexPath.section]
+        let group: MyGroup = source.groups[indexPath.row]
         cell.textLabel?.text = group.name
         
         return cell
@@ -294,16 +294,16 @@ class GroupViewController: UITableViewController {
     // Handle the deletion of a group
     override func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCellEditingStyle, forRowAt indexPath: IndexPath) {
         if editingStyle == .delete {
-            let source = self.sourcesAndGroups[(indexPath as NSIndexPath).section]
+            let source = self.sourcesAndGroups[indexPath.section]
             // group to be deleted
-            let group = source.groups[(indexPath as NSIndexPath).row]
+            let group = source.groups[indexPath.row]
             
             do {
                 // Remove the group from the address book
                 try self.deleteGroup(group, fromAddressBook: self.addressBook)
                 
                 // Remove the above group from its associated source
-                source.groups.remove(at: (indexPath as NSIndexPath).row)
+                source.groups.remove(at: indexPath.row)
                 
                 // Update the table view
                 tableView.deleteRows(at: [indexPath], with: .fade)
@@ -313,7 +313,7 @@ class GroupViewController: UITableViewController {
                     // Remove the source from sourcesAndGroups
                     self.sourcesAndGroups = self.sourcesAndGroups.filter{$0 !== source}
                     
-                    tableView.deleteSections(IndexSet(integer: (indexPath as NSIndexPath).section),
+                    tableView.deleteSections(IndexSet(integer: indexPath.section),
                         with: .fade)
                 }
             } catch let error {
@@ -338,9 +338,12 @@ class GroupViewController: UITableViewController {
     // This method is called when the user taps Done in the "Add Group" view.
     @IBAction func done(_ segue: UIStoryboardSegue) {
         if segue.identifier == "returnInput" {
-            if let addGroupViewController = segue.source as? AddGroupViewController {
+            if
+                let addGroupViewController = segue.source as? AddGroupViewController,
+                let group = addGroupViewController.group
+            {
                 do {
-                    try self.addGroup(addGroupViewController.group!, fromAddressBook: self.addressBook)
+                    try self.addGroup(group, fromAddressBook: self.addressBook)
                     self.tableView.reloadData()
                 } catch let error {
                     print(error)

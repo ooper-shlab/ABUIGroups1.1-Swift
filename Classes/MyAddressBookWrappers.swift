@@ -108,9 +108,9 @@ public class MyAddressBook: NSObject {
 //        } else {
 //            throw MyAddressBookError.Copy
 //        }
-        if let allContacts = ABAddressBookCopyArrayOfAllPeople(self.addressBook)?.takeRetainedValue() as NSArray? as? [ABRecord] {
+        if let allContacts = ABAddressBookCopyArrayOfAllPeople(self.addressBook)?.takeRetainedValue() as [ABRecord]? {
             let matches = allContacts.filter {record in
-                if let compositeName = ABRecordCopyCompositeName(record)?.takeRetainedValue() as NSString? as? String {
+                if let compositeName = ABRecordCopyCompositeName(record)?.takeRetainedValue() as String? {
                     return compositeName.contains(name)
                 } else {
                     return false
@@ -177,7 +177,7 @@ private class CNAddressBook: MyAddressBook {
         return MyAuthorizationStatus(cnAuthorizationStatus: cnAuthorizationStatus)
     }
     
-    private override func requestAccessForContacts(_ completion: @escaping (Bool, Error?) -> Void) {
+    fileprivate override func requestAccessForContacts(_ completion: @escaping (Bool, Error?) -> Void) {
         self.contactStore.requestAccess(for: .contacts, completionHandler: completion)
     }
     
